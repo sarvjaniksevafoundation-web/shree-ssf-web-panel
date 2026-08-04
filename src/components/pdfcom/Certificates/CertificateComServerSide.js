@@ -290,7 +290,7 @@ const styles = StyleSheet.create({
 const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm', height: '148mm' }} style={styles.page}>
    
         <View style={styles.outerBorder}>
-           <Image src={selectedProgram.isMamera ? TrsutData.MameraCertificateImg : TrsutData.frameImg} style={{
+           <Image src={TrsutData.frameImg} style={{
       position: 'absolute',
       top: 0,
       left: 0,
@@ -305,7 +305,7 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
 
           {/* Watermark */}
           <Image 
-           src={selectedProgram.isMamera?TrsutData.mameraLogo:TrsutData.logo}
+           src={TrsutData.logo}
             style={styles.watermark}
           />
 
@@ -331,7 +331,7 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
         
           </View> */}
        <View style={{
-        height:selectedProgram.isMamera?150:110,
+        height:120,
         width:'100%',
        }}>
 
@@ -356,12 +356,9 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
   </View>
 )}
 {
-  !selectedProgram.isMamera ?    <View style={styles.schemeBox}>
+    <View style={styles.schemeBox}>
                 <Text style={styles.schemeText}>{selectedProgram?.hiname}</Text>
-              </View>:<View styles={{
-                  paddingVertical: 3,
-    paddingHorizontal: 14,
-              }}></View>
+              </View>
 }
      
           {/* Form Section */}
