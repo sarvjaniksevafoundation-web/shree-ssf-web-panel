@@ -331,7 +331,7 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
         
           </View> */}
        <View style={{
-        height:120,
+        height:100,
         width:'100%',
        }}>
 
@@ -346,7 +346,7 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
               </View>
             )}
           </View>
-          {data.joinFees > 0 && (
+          {/* {data.joinFees > 0 && (
   <View style={styles.remarkBox}>
       <View style={[styles.fieldGroup, { marginLeft: 20,marginRight:40 }]}>
                 <Text style={styles.label}>सदस्यता शुल्क:</Text>
@@ -354,7 +354,7 @@ const Certificate=({data,selectedProgram}) => (    <Page size={{ width: '210mm',
               </View>
 
   </View>
-)}
+)} */}
 {
     <View style={styles.schemeBox}>
                 <Text style={styles.schemeText}>{selectedProgram?.hiname}</Text>

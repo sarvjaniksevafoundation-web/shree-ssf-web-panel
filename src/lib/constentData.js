@@ -17,7 +17,7 @@ export const TrsutData={
     MameraCertificateImg:MameraCertificateImg,
     email:"",
     website:"",
-    regNo:"",
+    regNo:"Reg no.F/7263/B.k/Guj",
     logo:logo,
     mameraLogo:MameraLogo,
     RightLogo:null,
