@@ -23,6 +23,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { setSelectedProgram } from '@/redux/slices/commonSlice';
 import AddMember from '../screen/programs/members/AddMember';
 import AddPaymentModal from '../common/addPayment/AddPaymentModal';
+import LanguageSwitcher from './LanguageSwitcher';
 
 const { Option } = Select;
 
@@ -121,7 +122,8 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
           font-weight: 500;
         }
 
-        /* Program select override */
+        /* Program + language select override */
+        .lang-select .ant-select-selector,
         .program-select .ant-select-selector {
           border-radius: 10px !important;
           border: 1px solid #e2e8f0 !important;
@@ -133,10 +135,12 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
           align-items: center !important;
           transition: all 0.18s !important;
         }
+        .lang-select .ant-select-selector:hover,
         .program-select .ant-select-selector:hover {
           border-color: #3b82f6 !important;
           background: #fff !important;
         }
+        .lang-select.ant-select-focused .ant-select-selector,
         .program-select.ant-select-focused .ant-select-selector {
           border-color: #3b82f6 !important;
           box-shadow: 0 0 0 3px rgba(59,130,246,0.12) !important;
@@ -220,6 +224,7 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
           .user-avatar-btn { padding: 5px; border-radius: 50%; }
           .topbar-actions-desktop { display: none; }
           .program-select { width: 140px !important; }
+          .lang-select-desktop { display: none; }
         }
       `}</style>
 
@@ -244,6 +249,11 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
 
         {/* Right */}
         <div className="flex items-center gap-2 flex-shrink-0">
+          {/* Language switcher */}
+          <div className="lang-select-desktop">
+            <LanguageSwitcher />
+          </div>
+
           {/* Program select */}
           <Select
             placeholder="Select Program"
@@ -255,7 +265,7 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
             suffixIcon={<FiChevronDown size={13} className="text-slate-400" />}
           >
             {programList.map(p => (
-              <Option key={p.id} value={p.id}>{p.name}</Option>
+              <Option key={p.id} value={p.id}><span className="notranslate">{p.name}</span></Option>
             ))}
           </Select>
 
@@ -275,15 +285,15 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
           <div className="relative user-menu-trigger">
             <button onClick={toggleUserMenu} className="user-avatar-btn user-menu-trigger">
               <div className="user-avatar">{initials}</div>
-              <span className="user-name-text">{user?.username || 'User'}</span>
+              <span className="user-name-text notranslate">{user?.username || 'User'}</span>
               <FiChevronDown size={13} className="text-slate-400" />
             </button>
 
             {showUserMenu && (
               <div className="user-dropdown user-menu-content">
                 <div className="user-dropdown-header">
-                  <p className="text-sm font-bold text-slate-800 truncate">{user?.username || 'User'}</p>
-                  <p className="text-xs text-slate-500 truncate mt-0.5">{user?.email || ''}</p>
+                  <p className="text-sm font-bold text-slate-800 truncate notranslate">{user?.username || 'User'}</p>
+                  <p className="text-xs text-slate-500 truncate mt-0.5 notranslate">{user?.email || ''}</p>
                 </div>
                 <button onClick={() => setIsLogoutModalOpen(true)} className="logout-btn">
                   <FiLogOut size={15} />
@@ -297,6 +307,7 @@ const TopBar = ({ sidebarCollapsed, toggleSidebar, showNotifications, toggleNoti
 
       {/* Mobile actions bar */}
       <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-b border-slate-100 bg-white overflow-x-auto">
+        <LanguageSwitcher compact />
         <AddPaymentModal />
         <AddAgent />
         <AddMember />

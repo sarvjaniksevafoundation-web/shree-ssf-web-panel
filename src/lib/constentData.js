@@ -13,6 +13,14 @@ export const TrsutData={
     contact:"9909584221 / 9925311046 / 9979744735",
     contactPerson:"हेमीबेन एम. पांत्रोड",
     trustPresident:"मंजुबेन जी. मोदी,जिगरकुमार एस. चौधरी",
+
+    // ---- Gujarati versions (used by the Gujarati certificate/PDFs) ----
+    guName:"શ્રી સાર્વજનિક સેવા ફાઉન્ડેશન",
+    guCityState:"ગુજરાત-રાજસ્થાન",
+    guAddress:"આશીર્વાદ કોમ્પ્લેક્સ, એસ.આર.પી. કેમ્પની સામે, દાંતીવાડા રોડ, ચંડીસર, તાલુકા પાલનપુર, પિન નં. 3850010",
+    guContactPerson:"હેમીબેન એમ. પાંત્રોડ",
+    guTrustPresident:"મંજુબેન જી. મોદી, જિગરકુમાર એસ. ચૌધરી",
+
     frameImg:certificateImg,
     MameraCertificateImg:MameraCertificateImg,
     email:"",
@@ -23,7 +31,7 @@ export const TrsutData={
     RightLogo:null,
     headerImg:headerImg,
     topTitle:[
-   
+
     ]
 }
 

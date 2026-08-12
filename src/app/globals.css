@@ -378,3 +378,47 @@ button:focus {
 .ant-input-number-input {
   width: 100% !important;
 }
+
+/* ────────────────────────────────────────────────────────────────
+   Google Website Translator (EN / GU / HI language switcher)
+   Hides Google's stock widget + top banner so only the custom
+   antd <Select> in the TopBar is visible.
+   ──────────────────────────────────────────────────────────────── */
+
+#google_translate_element {
+  display: none !important;
+}
+
+/* Top banner iframe that Google injects and the space it reserves */
+.goog-te-banner-frame,
+iframe.skiptranslate,
+.skiptranslate iframe {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+}
+
+body {
+  top: 0 !important;
+  position: static !important;
+}
+
+/* Google's hover tooltip / highlight on translated text */
+.goog-tooltip,
+.goog-tooltip:hover,
+#goog-gt-tt,
+.goog-te-balloon-frame {
+  display: none !important;
+}
+
+.goog-text-highlight {
+  background: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Keep the antd language select readable while a translation is active */
+.lang-select .ant-select-selection-item {
+  display: flex !important;
+  align-items: center !important;
+}
