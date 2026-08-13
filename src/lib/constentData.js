@@ -19,7 +19,7 @@ export const TrsutData={
     guCityState:"ગુજરાત-રાજસ્થાન",
     guAddress:"આશીર્વાદ કોમ્પ્લેક્સ, એસ.આર.પી. કેમ્પની સામે, દાંતીવાડા રોડ, ચંડીસર, તાલુકા પાલનપુર, પિન નં. 3850010",
     guContactPerson:"હેમીબેન એમ. પાંત્રોડ",
-    guTrustPresident:"મંજુબેન જી. મોદી, જિગરકુમાર એસ. ચૌધરી",
+    guTrustPresident:"એમ.જી.મોદી, એચ.એમ.પાંત્રોડ, જે.એસ.ચૌધરી",
 
     frameImg:certificateImg,
     MameraCertificateImg:MameraCertificateImg,
