@@ -1,20 +1,22 @@
 'use client'
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { AgGridReact } from 'ag-grid-react';
 import {
     ClientSideRowModelModule, ModuleRegistry, NumberEditorModule,
     NumberFilterModule, PaginationModule, RowSelectionModule,
-    TextEditorModule, TextFilterModule, ValidationModule, RowStyleModule
+    TextEditorModule, TextFilterModule, ValidationModule, RowStyleModule,
+    ClientSideRowModelApiModule
 } from 'ag-grid-community';
 import {
     EyeOutlined, EditOutlined, PlusCircleOutlined, FilterOutlined,
-    ClearOutlined, CalendarOutlined, FilePdfOutlined, DownloadOutlined
+    ClearOutlined, CalendarOutlined, FilePdfOutlined, DownloadOutlined,
+    SortAscendingOutlined, SearchOutlined, TeamOutlined, WalletOutlined
 } from '@ant-design/icons';
 import { MdOutlinePendingActions } from 'react-icons/md';
 import { GrCertificate } from 'react-icons/gr';
 import {
     Avatar, Button, Dropdown, Tag, Tooltip, Select,
-    DatePicker, Modal, Badge, Divider, message
+    DatePicker, Modal, Badge, Divider, message, Input
 } from 'antd';
 import { useDispatch, useSelector } from 'react-redux';
 import { getData } from '@/lib/services/firebaseService';
@@ -42,7 +44,8 @@ const { RangePicker } = DatePicker;
 ModuleRegistry.registerModules([
     NumberEditorModule, TextEditorModule, TextFilterModule,
     NumberFilterModule, RowSelectionModule, PaginationModule,
-    ClientSideRowModelModule, ValidationModule, RowStyleModule
+    ClientSideRowModelModule, ValidationModule, RowStyleModule,
+    ClientSideRowModelApiModule   // needed for forEachNodeAfterFilterAndSort (export)
 ]);
 
 // ── presets ────────────────────────────────────────────────────────────────────
@@ -70,6 +73,40 @@ const JOIN_FEES_OPTIONS = [
     { value: 'pending', label: 'Join fees pending'   },
     { value: 'paid',    label: 'Join fees paid'      },
 ];
+
+const SORT_OPTIONS = [
+    { value: 'default', label: 'Default (Newest first)' },
+    { value: 'az',      label: 'Name A → Z' },
+    { value: 'za',      label: 'Name Z → A' },
+];
+
+// Works for both Hindi (Devanagari) and English names
+const nameCollator = new Intl.Collator(['hi', 'en'], { sensitivity: 'base', numeric: true });
+
+const sortMembers = (data, order) => {
+    if (!data?.length || order === 'default') return data ?? [];
+    const dir = order === 'za' ? -1 : 1;
+    return [...data].sort((a, b) => {
+        const an = (a.displayName || '').trim();
+        const bn = (b.displayName || '').trim();
+        if (!an && bn) return 1;          // empty names always at the end
+        if (an && !bn) return -1;
+        return dir * nameCollator.compare(an, bn);
+    });
+};
+
+const SEARCH_FIELDS = [
+    'displayName', 'fatherName', 'jati', 'registrationNumber', 'applicationNo',
+    'phone', 'village', 'aadhaarNo', 'addedByName',
+];
+
+const searchMembers = (data, text) => {
+    const q = (text || '').trim().toLowerCase();
+    if (!q || !data?.length) return data ?? [];
+    return data.filter(m =>
+        SEARCH_FIELDS.some(f => String(m[f] ?? '').toLowerCase().includes(q))
+    );
+};
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 const countActive = ({ gender, agent, dateRange, joinFees }) => {
@@ -120,6 +157,12 @@ const MemberList = () => {
     const [selectedAgentFilter,  setSelectedAgentFilter]  = useState(null);
     const [dateRange,            setDateRange]            = useState(null);
     const [joinFeesFilter,       setJoinFeesFilter]       = useState('all');
+    const [sortOrder,            setSortOrder]            = useState('default');
+    const [searchText,           setSearchText]           = useState('');
+    // members handed to the PDF modal (snapshot of grid rows at click time)
+    const [exportMembers,        setExportMembers]        = useState([]);
+    // row count when AG Grid column-header filters are active (null = none)
+    const [colFilterCount,       setColFilterCount]       = useState(null);
 
     // draft values (inside modal)
     const [draftStatus,          setDraftStatus]          = useState('active');
@@ -259,6 +302,61 @@ const MemberList = () => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    // ── sorted list (used by grid, PDF export & certificates) ──────────────────
+    const sortedMembersData = useMemo(
+        () => sortMembers(filteredMembersData, sortOrder),
+        [filteredMembersData, sortOrder]
+    );
+
+    const handleSortChange = (value) => {
+        setSortOrder(value);
+        // clear any column-header sort so the grid shows the same order as the PDF
+        gridRef.current?.api?.applyColumnState({ defaultState: { sort: null } });
+    };
+
+    // search box → applied on top of filters + sort
+    const searchedMembers = useMemo(
+        () => searchMembers(sortedMembersData, searchText),
+        [sortedMembersData, searchText]
+    );
+
+    // exact rows the grid is showing right now (search + column filters + header sort)
+    const getGridRows = () => {
+        const api = gridRef.current?.api;
+        if (!api) return searchedMembers;
+        const rows = [];
+        try {
+            api.forEachNodeAfterFilterAndSort(node => { if (node.data) rows.push(node.data); });
+        } catch (e) {
+            console.error('Could not read grid rows:', e);
+        }
+        // safety net: if grid gave nothing but no column filter is active, use our list
+        if (!rows.length && !api.isColumnFilterPresent?.()) return searchedMembers;
+        return rows;
+    };
+
+    const refreshColFilterCount = () => {
+        const api = gridRef.current?.api;
+        if (!api) return;
+        setColFilterCount(api.isColumnFilterPresent() ? api.getDisplayedRowCount() : null);
+    };
+
+    useEffect(() => {
+        const t = setTimeout(refreshColFilterCount, 0);
+        return () => clearTimeout(t);
+    }, [searchedMembers]);
+
+    const shownCount   = colFilterCount ?? searchedMembers.length;
+    const totalCount   = sortedMembersData.length;
+    const isNarrowed   = shownCount !== totalCount;
+
+    const openExport = () => {
+        const rows = getGridRows();
+        if (!rows.length) { message.warning('No members to export'); return; }
+        setExportMembers(rows);
+        setIsExportOpen(true);
+    };
+
     // ── payment ────────────────────────────────────────────────────────────────
     const handleShowPaymentDetails = async (data) => {
         setSelectedMember(data);
@@ -300,6 +398,8 @@ const MemberList = () => {
         if (selectedAgentFilter)      parts.push(`Agent: ${agentsList?.find(a => a.id === selectedAgentFilter)?.displayName || ''}`);
         if (joinFeesFilter !== 'all') parts.push(`Join Fees: ${joinFeesFilter === 'pending' ? 'Pending' : 'Paid'}`);
         if (dateRange)                parts.push(`Date: ${dateRange[0]?.format('DD/MM/YYYY')} – ${dateRange[1]?.format('DD/MM/YYYY')}`);
+        if (searchText.trim())        parts.push(`Search: "${searchText.trim()}"`);
+        if (sortOrder !== 'default')  parts.push(`Sort: ${SORT_OPTIONS.find(o => o.value === sortOrder)?.label}`);
         return parts.join(' · ');
     })();
 
@@ -507,100 +607,140 @@ const MemberList = () => {
     return (
         <div>
             {/* ── Toolbar ──────────────────────────────────────────────────── */}
-            <div className="flex items-center justify-between mb-3 gap-3 flex-wrap bg-white border border-gray-200 rounded-xl px-4 py-2.5 shadow-sm">
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Filter button */}
+            <div className="mb-3 bg-white border border-gray-200 rounded-xl shadow-sm">
+                {/* Row 1 : title + actions */}
+                <div className="flex items-center justify-between gap-3 flex-wrap px-4 pt-3 pb-2.5 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                        <div className="w-9 h-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-lg">
+                            <TeamOutlined />
+                        </div>
+                        <div className="leading-tight">
+                            <div className="text-base font-semibold text-gray-800">Members</div>
+                            <div className="text-xs text-gray-500">
+                                {isNarrowed
+                                    ? <>Showing <span className="font-semibold text-blue-600">{shownCount}</span> of {totalCount}</>
+                                    : <><span className="font-semibold text-gray-700">{totalCount}</span> members</>}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
+                        <Button
+                            icon={<WalletOutlined />}
+                            onClick={() => setJoinFeesMemberListOpen(true)}
+                            className="h-9 rounded-lg font-medium"
+                        >
+                            Join Fees List
+                        </Button>
+                        <Button
+                            icon={<GrCertificate />}
+                            onClick={() => downloadMultipleCertificates(getGridRows(), selectedProgram)}
+                            loading={isCertDownloading}
+                            disabled={isCertDownloading || shownCount === 0}
+                            className="h-9 rounded-lg font-medium bg-green-50 border-green-300 text-green-700 hover:bg-green-100"
+                        >
+                            {isCertDownloading ? 'Generating…' : 'Certificates'}
+                        </Button>
+                        <Button
+                            type="primary"
+                            danger
+                            icon={<FilePdfOutlined />}
+                            onClick={openExport}
+                            disabled={shownCount === 0}
+                            className="h-9 rounded-lg font-medium"
+                        >
+                            Export PDF{isNarrowed ? ` (${shownCount})` : ''}
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Row 2 : search + sort + filters */}
+                <div className="flex items-center gap-2 flex-wrap px-4 py-2.5">
+                    <Input
+                        allowClear
+                        value={searchText}
+                        onChange={e => setSearchText(e.target.value)}
+                        prefix={<SearchOutlined className="text-gray-400" />}
+                        placeholder="Search name, father name, phone, reg no, village…"
+                        className="h-9 rounded-lg flex-1"
+                        style={{ minWidth: 220 }}
+                    />
+                    <Select
+                        value={sortOrder}
+                        onChange={handleSortChange}
+                        options={SORT_OPTIONS}
+                        suffixIcon={<SortAscendingOutlined />}
+                        className="h-9"
+                        style={{ width: 200 }}
+                        popupMatchSelectWidth={false}
+                    />
                     <Badge count={activeFilterCount} size="small" offset={[-4, 4]}
                         style={{ backgroundColor: '#2563EB' }}>
                         <Button
                             icon={<FilterOutlined />}
                             onClick={openFilterModal}
-                            className={`flex items-center gap-1.5 h-9 px-4 rounded-lg font-medium ${
+                            className={`h-9 px-4 rounded-lg font-medium ${
                                 activeFilterCount > 0
                                     ? 'bg-blue-50 border-blue-300 text-blue-700 hover:bg-blue-100'
-                                    : 'bg-white border-gray-300 text-gray-700'
+                                    : ''
                             }`}
                         >
                             Filters
                         </Button>
                     </Badge>
+                </div>
 
-                    {/* Active chips */}
-                    {genderFilter !== 'all' && (
-                        <Tag closable onClose={() => removeFilter('gender')}
-                            color={genderFilter === 'male' ? 'blue' : 'pink'}
-                            className="h-7 flex items-center capitalize text-xs">
-                            {genderFilter}
-                        </Tag>
-                    )}
-                    {selectedAgentFilter && (
-                        <Tag closable onClose={() => removeFilter('agent')} color="purple"
-                            className="h-7 flex items-center text-xs">
-                            Agent: {agentsList?.find(a => a.id === selectedAgentFilter)?.displayName || selectedAgentFilter}
-                        </Tag>
-                    )}
-                    {joinFeesFilter !== 'all' && (
-                        <Tag closable onClose={() => removeFilter('joinFees')}
-                            color={joinFeesFilter === 'pending' ? 'red' : 'green'}
-                            className="h-7 flex items-center text-xs">
-                            {joinFeesFilter === 'pending' ? 'Fees Pending' : 'Fees Paid'}
-                        </Tag>
-                    )}
-                    {dateRange && (
-                        <Tag closable onClose={() => removeFilter('dateRange')} color="orange"
-                            className="h-7 flex items-center text-xs">
-                            {dateRange[0]?.format('DD/MM/YY')} – {dateRange[1]?.format('DD/MM/YY')}
-                        </Tag>
-                    )}
-                    {activeFilterCount > 0 && (
+                {/* Row 3 : active chips (only when something is applied) */}
+                {(activeFilterCount > 0 || searchText.trim()) && (
+                    <div className="flex items-center gap-1.5 flex-wrap px-4 pb-2.5 -mt-1">
+                        <span className="text-xs text-gray-400 mr-1">Applied:</span>
+                        {searchText.trim() && (
+                            <Tag closable onClose={() => setSearchText('')} color="geekblue" className="text-xs m-0">
+                                Search: {searchText.trim()}
+                            </Tag>
+                        )}
+                        {genderFilter !== 'all' && (
+                            <Tag closable onClose={() => removeFilter('gender')}
+                                color={genderFilter === 'male' ? 'blue' : 'pink'} className="capitalize text-xs m-0">
+                                {genderFilter}
+                            </Tag>
+                        )}
+                        {selectedAgentFilter && (
+                            <Tag closable onClose={() => removeFilter('agent')} color="purple" className="text-xs m-0">
+                                Agent: {agentsList?.find(a => a.id === selectedAgentFilter)?.displayName || selectedAgentFilter}
+                            </Tag>
+                        )}
+                        {joinFeesFilter !== 'all' && (
+                            <Tag closable onClose={() => removeFilter('joinFees')}
+                                color={joinFeesFilter === 'pending' ? 'red' : 'green'} className="text-xs m-0">
+                                {joinFeesFilter === 'pending' ? 'Fees Pending' : 'Fees Paid'}
+                            </Tag>
+                        )}
+                        {dateRange && (
+                            <Tag closable onClose={() => removeFilter('dateRange')} color="orange" className="text-xs m-0">
+                                {dateRange[0]?.format('DD/MM/YY')} – {dateRange[1]?.format('DD/MM/YY')}
+                            </Tag>
+                        )}
                         <Button size="small" type="link" icon={<ClearOutlined />}
-                            onClick={() => { setGenderFilter('all'); setSelectedAgentFilter(null); setDateRange(null); setJoinFeesFilter('all'); }}
+                            onClick={() => { setSearchText(''); setGenderFilter('all'); setSelectedAgentFilter(null); setDateRange(null); setJoinFeesFilter('all'); }}
                             className="text-gray-400 hover:text-red-500 px-1 text-xs">
                             Clear all
                         </Button>
-                    )}
-                </div>
-
-                {/* Right side: count + export */}
-                <div className="flex items-center gap-2">
-                    <Tag color="blue" className="text-sm font-medium h-7 flex items-center m-0">
-                        {filteredMembersData.length} members
-                    </Tag>
-                    <Button 
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-red-50 border-red-300 text-red-600 hover:bg-red-100 hover:border-red-400 font-medium"
-                    onClick={() => setJoinFeesMemberListOpen(true)}
-                    >
-                        Join Fees List
-                    </Button>
-                     <Button
-                        icon={<FilePdfOutlined />}
-                        onClick={() => downloadMultipleCertificates(filteredMembersData, selectedProgram)}
-                        loading={isCertDownloading}
-                        disabled={isCertDownloading || filteredMembersData.length === 0}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-green-50 border-green-300 text-green-600 hover:bg-green-100 hover:border-green-400 font-medium"
-                    >
-                        {isCertDownloading ? 'Generating...' : 'Download Certificates'}
-                    </Button>
-                    <Button
-                        icon={<FilePdfOutlined />}
-                        onClick={() => setIsExportOpen(true)}
-                        className="flex items-center gap-1.5 h-9 px-4 rounded-lg bg-red-50 border-red-300 text-red-600 hover:bg-red-100 hover:border-red-400 font-medium"
-                    >
-                        Export PDF
-                    </Button>
-                </div>
+                    </div>
+                )}
             </div>
 
             {/* ── AG Grid ──────────────────────────────────────────────────── */}
             <div style={{ height: windowWidth < 768 ? '70vh' : '65vh' }}>
                 <AgGridReact
                     ref={gridRef}
-                    rowData={filteredMembersData}
+                    rowData={searchedMembers}
                     loading={isLoading}
                     defaultColDef={defaultColDef}
                     columnDefs={COL_DEFS}
                     pagination={true}
                     onGridReady={onGridReady}
+                    onFilterChanged={refreshColFilterCount}
                     overlayLoadingTemplate='<span class="ag-overlay-loading-center">Loading…</span>'
                     overlayNoRowsTemplate='<span class="ag-overlay-loading-center">No data available</span>'
                 />
@@ -779,7 +919,7 @@ const MemberList = () => {
             <MemberExportPDF
                 open={isExportOpen}
                 onClose={() => setIsExportOpen(false)}
-                members={filteredMembersData}
+                members={exportMembers}
                 filterSummary={filterSummary}
                 programName={selectedProgram?.name || ''}
             />
