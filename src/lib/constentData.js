@@ -4,7 +4,7 @@ import logo from "@/app/api/helperfile/Images/logo";
 import MameraCertificateImg from "@/app/api/helperfile/Images/MameraCertificateImg";
 import MameraLogo from "@/app/api/helperfile/Images/mameraLogo";
 import semkariLogo from "@/app/api/helperfile/Images/semkariLogo";
-
+import stampImg from "@/app/api/helperfile/Images/stampImg";
 
 export const TrsutData={
     name:"श्री सार्वजनिक सेवा फाउंडेशन",
@@ -28,7 +28,7 @@ export const TrsutData={
     regNo:"Reg no.F/7263/B.k/Guj",
     logo:logo,
     mameraLogo:MameraLogo,
-    RightLogo:null,
+    stampImg:stampImg,
     headerImg:headerImg,
     topTitle:[
 

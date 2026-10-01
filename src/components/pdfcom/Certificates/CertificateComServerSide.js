@@ -230,6 +230,15 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     alignItems: 'center',
     width: '45%',
+    position: 'relative',
+  },
+  stampImage: {
+    position: 'absolute',
+    right: 22,
+    bottom: -6,
+    width: 66,
+    height: 60,
+    objectFit: 'contain',
   },
   footerLabel: {
     fontSize: 9,
@@ -485,6 +494,9 @@ const Certificate = ({ data, selectedProgram }) => {
 
             {/* Right Side - Signature */}
             <View style={styles.rightFooter}>
+              {TrsutData.stampImg && (
+                <Image src={TrsutData.stampImg} style={styles.stampImage} />
+              )}
               <AutoText style={styles.footerValue}>
                 {TRUST_NAME}
               </AutoText>
